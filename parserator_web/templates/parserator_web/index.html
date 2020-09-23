@@ -1,0 +1,165 @@
+{% extends "parserator_web/base.html" %}
+{% load static %}
+
+{% block title %}Home{% endblock %}
+
+{% block body %}
+<div class="container">
+  <div class="row pt-5 pb-4">
+    <div class="col-12">
+      <h3 id="usaddress-parser"><i class="fa fa-fw fa-map-marker-alt"></i> U.S. address parser</h3>
+      <p>Dealing with some messy or unstructured addresses? We can parse them for you.</p>
+      <div class="card card-body bg-light">
+        <p><strong>Try it out!</strong> Parse an address in the United States into fields like <code>AddressNumber</code>, <code>StreetName</code> and <code>ZipCode</code>.</p>
+        <form class="form" role="form">
+          {% csrf_token %}
+          <input name="address" type="text" class="form-control" id="address" placeholder="123 Main St. Suite 100 Chicago, IL">
+          <button id="submit" type="submit" class="btn btn-success mt-3">Parse!</button>
+        </form>
+      </div>
+      <!-- TODO: Display parsed address components here. -->
+      <div id="address-results" style="display:none">
+        <h4>Parsing results</h4>
+        <p>Address type: <strong><span id="parse-type"></span></strong></p>
+        <table class="table table-bordered">
+          <thead>
+            <tr>
+              <th>Address part</th>
+              <th>Tag</th>
+            </tr>
+          </thead>
+          <tbody>
+            
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script type="text/javascript">
+
+    // Define DOM elements as variables
+
+    const address = document.querySelector('#address');
+    const submit = document.querySelector('#submit');
+    const addressResults = document.querySelector('#address-results');
+    const addressType = document.querySelector('#parse-type');
+    let tableBody = document.querySelector('tbody');
+    
+    // Create Error message element
+    let alertMessage = document.createElement('p');
+    alertMessage.style['display'] = 'none';
+    
+    
+    submit.addEventListener('click', (e) => {
+      e.preventDefault();
+      
+      // Clear Table
+      tableBody.innerHTML='';
+
+      // Define POST request with user content
+      const myHeaders = new Headers();
+      myHeaders.append("Content-Type", "application/json");
+      
+      const raw = JSON.stringify(address.value);
+
+      const requestOptions = {
+        method: 'POST',
+        headers: myHeaders,
+        body: raw,
+        redirect: 'follow'
+      };
+
+      // Submit POST Request
+      fetch("http://localhost:8000/api/parse/", requestOptions)
+        .then(response => response.text())
+        .then(result => {
+          
+          // Parse response from JSON format to objects in an array
+          
+          let addressComponents = JSON.parse(result);
+          
+          // Return addressType from JSON results
+          addressType.innerHTML = addressComponents[1]
+
+
+          // Make address table container visible
+          addressResults.style['display'] = null;
+          
+
+          // Handles Empty Input
+
+          if (addressComponents[1] === 'Ambiguous'){
+            addressResults.replaceWith(alertMessage)
+            alertMessage.style['display'] = null;
+            alertMessage.classList.add('alert');
+            alertMessage.classList.add('alert-danger');
+            alertMessage.classList.add('m-4');
+            
+
+            alertMessage.innerHTML = 'Please provide a value to parse';
+            
+            
+
+          // Handles Repeated Label Error
+          } else if (addressComponents.includes('Unable') === true){
+            addressResults.replaceWith(alertMessage)
+            alertMessage.style['display'] = null;
+            
+            alertMessage.classList.add('alert');
+            alertMessage.classList.add('alert-danger');
+            alertMessage.classList.add('m-4');
+            
+            alertMessage.innerHTML= addressComponents;
+            
+
+
+          } else {
+            // Handles Success
+            alertMessage.replaceWith(addressResults)
+
+            
+              let addressParts = [];
+              let addressTags = [];
+          
+              // Push Keys and Values into respective arrays
+
+              Object.values(addressComponents[0]).forEach(el => {
+                addressParts.push(el)
+                return addressParts
+              });
+              
+              Object.keys(addressComponents[0]).forEach(el => {
+                addressTags.push(el);
+                return addressTags;
+              });
+              
+              
+
+              // Generate Rows of address components
+              for (let i = 0; i < addressParts.length; i++) {
+                
+                let newRow = document.createElement('tr');
+                let newAddressPart = document.createElement('td');
+                let newAddressTag = document.createElement('td');
+                
+                
+
+                newAddressTag.innerHTML = addressTags[i];
+                newAddressPart.innerHTML = addressParts[i];
+                tableBody.appendChild(newRow);
+                newRow.appendChild(newAddressPart);
+                newRow.appendChild(newAddressTag);
+              }
+            }
+          
+        })
+        .catch(error => console.log('error', error));
+
+    });
+
+  </script>
+{% endblock %}
